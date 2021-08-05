@@ -133,4 +133,13 @@ char *nvram_get(const char *key)
     return ret;
 }
 
+int nvram_get_int(const char *key){
+    char *value;
+    value = nvram_get(key);
+    if(!value){
+        return ~0;
+    } else{
+        return atoi(value);
+    }
+}
 

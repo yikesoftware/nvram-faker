@@ -3,4 +3,6 @@
 
 char *nvram_get(const char *key);
 
+int nvram_get_int(const char *key);
+
 #endif /* __NVRAM_FAKER_H__ */
