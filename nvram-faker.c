@@ -4,133 +4,75 @@
 #include "nvram-faker.h"
 //include before ini.h to override ini.h defaults
 #include "nvram-faker-internal.h"
-#include "ini.h"
+#include "dictionary.h"
 
 #define RED_ON "\033[22;31m"
 #define RED_OFF "\033[22;00m"
-#define DEFAULT_KV_PAIR_LEN 1024
+#define DIC_LINE_BUF 1024*1024               
 
-static int kv_count=0;
-static int key_value_pair_len=DEFAULT_KV_PAIR_LEN;
-static char **key_value_pairs=NULL;
+dictionary *glo_nvram=NULL;
 
-static int ini_handler(void *user, const char *section, const char *name,const char *value)
-{
-
-    int old_kv_len;
-    char **kv;
-    char **new_kv;
-    int i;
-    
-    if(NULL == user || NULL == section || NULL == name || NULL == value)
-    {
-        DEBUG_PRINTF("bad parameter to ini_handler\n");
-        return 0;
-    }
-    kv = *((char ***)user);
-    if(NULL == kv)
-    {
-        LOG_PRINTF("kv is NULL\n");
-        return 0;
-    }
-    
-    DEBUG_PRINTF("kv_count: %d, key_value_pair_len: %d\n", kv_count,key_value_pair_len);
-    if(kv_count >= key_value_pair_len)
-    {
-        old_kv_len=key_value_pair_len;
-        key_value_pair_len=(key_value_pair_len * 2);
-        new_kv=(char **)malloc(key_value_pair_len * sizeof(char **));
-        if(NULL == kv)
-        {
-            LOG_PRINTF("Failed to reallocate key value array.\n");
-            return 0;
-        }
-        for(i=0;i<old_kv_len;i++)
-        {
-            new_kv[i]=kv[i];
-        }
-        free(*(char ***)user);
-        kv=new_kv;
-        *(char ***)user=kv;
-    }
-    DEBUG_PRINTF("Got %s:%s\n",name,value);
-    kv[kv_count++]=strdup(name);
-    kv[kv_count++]=strdup(value);
-    
-    return 1;
+char *fetch_line(char *buf, int size, FILE *stream) {
+    char *cursor = buf;                                   
+    char *ret;                                              
+    memset(buf, 0, size);                                 
+    ret = fgets(buf, size, stream);                   
+    if(ret){                                                
+        while(*cursor != '\0' && (cursor-buf) < size){  
+            if(*cursor == '\n' || *cursor == '\r'){         
+                *cursor = '\0';                             
+            }
+            cursor++;                                               
+        }                                                   
+    }                                                       
+    return ret;                                                    
 }
 
-void initialize_ini(void)
+void initialize_dict(void)
 {
-    int ret;
-    DEBUG_PRINTF("Initializing.\n");
-    if (NULL == key_value_pairs)
-    {
-        key_value_pairs=malloc(key_value_pair_len * sizeof(char **));
-    }
-    if(NULL == key_value_pairs)
-    {
-        LOG_PRINTF("Failed to allocate memory for key value array. Terminating.\n");
-        exit(1);
-    }
+    char line_buf[DIC_LINE_BUF] = {0};
+
+    glo_nvram = dictionary_new(0);
     
-    ret = ini_parse(INI_FILE_PATH,ini_handler,(void *)&key_value_pairs);
-    if (0 != ret)
-    {
-        LOG_PRINTF("ret from ini_parse was: %d\n",ret);
-        LOG_PRINTF("INI parse failed. Terminating\n");
-        free(key_value_pairs);
-        key_value_pairs=NULL;
-        exit(1);
-    }else
-    {
-        DEBUG_PRINTF("ret from ini_parse was: %d\n",ret);
+    FILE *nvm_file_fp = fopen(DICT_FILE_PATH, "rw");
+    DEBUG_PRINTF("DICT_FILE_FP: %p\n", nvm_file_fp);
+
+    if(!nvm_file_fp) return;
+
+    while(fetch_line(line_buf, DIC_LINE_BUF, nvm_file_fp)){
+        char *key = line_buf;
+        char *value = NULL;
+        //DEBUG_PRINTF("[FAKE NVRAM] line_buf: %s\n", line_buf);
+        char *sep = strchr(line_buf, '=');
+        if(sep){
+            *sep = '\0';
+            value = sep+1;
+        } else{
+            continue;
+        }        
+        char *ptr = strdup(value);
+        dictionary_set(glo_nvram, key, (void *)ptr);
+        DEBUG_PRINTF("[FAKE NVRAM] kv: %s=%s\n", key, ptr);
     }
-    
-    return;
-    
+    DEBUG_PRINTF("[FAKE NVRAM] Test get: %s\n", nvram_get("oauth_dm_refresh_ticket"));
+    fclose(nvm_file_fp);
 }
 
 void end(void)
 {
-    int i;
-    for (i=0;i<kv_count;i++)
-    {
-        free(key_value_pairs[i]);
-    }
-    free(key_value_pairs);
-    key_value_pairs=NULL;
-    
-    return;
+    dictionary_del(glo_nvram);
 }
 
 char *nvram_get(const char *key)
 {
-    int i;
-    int found=0;
-    char *value;
-    char *ret;
-    for(i=0;i<kv_count;i+=2)
-    {
-        if(strcmp(key,key_value_pairs[i]) == 0)
-        {
-            LOG_PRINTF("%s=%s\n",key,key_value_pairs[i+1]);
-            found = 1;
-            value=key_value_pairs[i+1];
-            break;
-        }
+    LOG_PRINTF("[FAKE NVRAM] nvram_get: %s\n", key);
+    char *value = dictionary_get(glo_nvram, key, NULL);
+    if(!value){
+        LOG_PRINTF("[FAKE NVRAM] got: %s=NULL\n", key);
+    } else{
+        LOG_PRINTF("[FAKE NVRAM] got: %s=%s\n", key, value);   
     }
-
-    ret = NULL;
-    if(!found)
-    {
-            LOG_PRINTF( RED_ON"%s=Unknown\n"RED_OFF,key);
-    }else
-    {
-
-            ret=strdup(value);
-    }
-    return ret;
+    return value;
 }
 
 int nvram_get_int(const char *key){
@@ -141,5 +83,28 @@ int nvram_get_int(const char *key){
     } else{
         return atoi(value);
     }
+}
+
+int nvram_set(const char *key, const char *value)
+{
+    int ret;
+    if(!key || !value){
+        return ~0;
+    }
+    LOG_PRINTF("[FAKE NVRAM] nvram_set: %s=%s\n", key, value);
+    ret = dictionary_set(glo_nvram, key, strdup(value));
+    return ret;
+}
+
+int nvram_set_int(const char *key, int value){
+    char int_val[32] = {0};
+    int ret;
+
+    if(!key || !value){
+        return ~0;
+    }
+    snprintf(int_val, 31, "%d", value);
+    ret = nvram_set(key, int_val);
+    return ret;
 }
 

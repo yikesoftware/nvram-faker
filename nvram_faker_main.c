@@ -13,9 +13,6 @@
 #define NVRAM_EXE
 #endif
 
-//#ifndef INI_FILE_PATH
-#define INI_FILE_PATH "./nvram.ini"
-//#endif
 
 #include "nvram-faker-internal.h"
 
@@ -24,10 +21,10 @@ extern void end(void);
 
 int main(void)
 {
-    DEBUG_PRINTF("calling initalize_ini().\n");
-    initialize_ini();
-    DEBUG_PRINTF("calling end().\n");
+    DEBUG_PRINTF("[FAKE_NVRAM] calling initalize_dict().\n");
+    initialize_dict();
+    DEBUG_PRINTF("[FAKE_NVRAM] calling end().\n");
     end();
-    DEBUG_PRINTF("Done.\n");
+    DEBUG_PRINTF("[FAKE_NVRAM] Done.\n");
     return 0;
 }
