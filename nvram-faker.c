@@ -35,14 +35,14 @@ void initialize_dict(void)
     glo_nvram = dictionary_new(0);
     
     FILE *nvm_file_fp = fopen(DICT_FILE_PATH, "rw");
-    DEBUG_PRINTF("DICT_FILE_FP: %p\n", nvm_file_fp);
+    DEBUG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF"DICT_FILE_FP: %p\n", nvm_file_fp);
 
     if(!nvm_file_fp) return;
 
     while(fetch_line(line_buf, DIC_LINE_BUF, nvm_file_fp)){
         char *key = line_buf;
         char *value = NULL;
-        //DEBUG_PRINTF("[FAKE NVRAM] line_buf: %s\n", line_buf);
+        //DEBUG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF" line_buf: %s\n", line_buf);
         char *sep = strchr(line_buf, '=');
         if(sep){
             *sep = '\0';
@@ -52,9 +52,9 @@ void initialize_dict(void)
         }        
         char *ptr = strdup(value);
         dictionary_set(glo_nvram, key, (void *)ptr);
-        DEBUG_PRINTF("[FAKE NVRAM] kv: %s=%s\n", key, ptr);
+        DEBUG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF" kv: %s=%s\n", key, ptr);
     }
-    DEBUG_PRINTF("[FAKE NVRAM] Test get: %s\n", nvram_get("oauth_dm_refresh_ticket"));
+    DEBUG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF" Test get: %s\n", nvram_get("oauth_dm_refresh_ticket"));
     fclose(nvm_file_fp);
 }
 
@@ -65,12 +65,12 @@ void end(void)
 
 char *nvram_get(const char *key)
 {
-    LOG_PRINTF("[FAKE NVRAM] nvram_get: %s\n", key);
+    LOG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF" nvram_get: %s\n", key);
     char *value = dictionary_get(glo_nvram, key, NULL);
     if(!value){
-        LOG_PRINTF("[FAKE NVRAM] got: %s=NULL\n", key);
+        LOG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF" got: %s=NULL\n", key);
     } else{
-        LOG_PRINTF("[FAKE NVRAM] got: %s=%s\n", key, value);   
+        LOG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF" got: %s=%s\n", key, value);   
     }
     return value;
 }
@@ -91,7 +91,7 @@ int nvram_set(const char *key, const char *value)
     if(!key || !value){
         return ~0;
     }
-    LOG_PRINTF("[FAKE NVRAM] nvram_set: %s=%s\n", key, value);
+    LOG_PRINTF(RED_ON"[FAKE NVRAM]"RED_OFF" nvram_set: %s=%s\n", key, value);
     ret = dictionary_set(glo_nvram, key, strdup(value));
     return ret;
 }
